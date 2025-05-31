@@ -1,10 +1,14 @@
 import psycopg2
+import argon2
 import bcrypt
+from argon2 import PasswordHasher
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
 DATABASE_URL = "postgresql://postgres:Reza4831@localhost:5432/postgres"
+
+
 
 
 def get_db_connection():
@@ -155,7 +159,8 @@ def register():
     email = data['email']
     password = data['password']
 
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    ph = PasswordHasher()
+    hashed_password = ph.hash(password)
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -188,9 +193,11 @@ def login():
     if stored_password is None:
         return jsonify({"message": "User not found"}), 404
 
-    if bcrypt.checkpw(password.encode('utf-8'), stored_password[0].encode('utf-8')):
+    ph = PasswordHasher()
+    try:
+        ph.verify(stored_password[0], password)
         return jsonify({"message": "Login successful!"}), 200
-    else:
+    except:
         return jsonify({"message": "Invalid credentials"}), 400
 
     cursor.close()
@@ -369,6 +376,7 @@ def get_leaderboard():
         return jsonify(leaderboard), 200
     else:
         return jsonify({"message": "No leaderboard data found for the specified ranking type."}), 404
+
 
 
 if __name__ == '__main__':
