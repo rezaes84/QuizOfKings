@@ -3,6 +3,7 @@ The Ultimate Knowledge and Intelligence Battle! 🚀
 Quiz of Kings is a competitive web-based platform where two players can challenge each other's knowledge across various categories. Developed using the Flask framework in Python, this project delivers a dynamic and engaging gaming experience.
 
 🌟 Key Features
+
 👥 User Management: Secure player registration, login, and session handling.
 
 🎮 Gameplay System: A complete game flow with multiple rounds, real-time question display, score calculation, and winner determination.
