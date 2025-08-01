@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تاریخچه مسابقات</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            direction: rtl; /* Right-to-left for Persian */
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        .match-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .match-table th, .match-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: right;
+        }
+        .match-table th {
+            background-color: #f2f2f2;
+            color: #555;
+            font-weight: bold;
+        }
+        .match-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .match-table tr:hover {
+            background-color: #e9e9e9;
+        }
+        .no-matches {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #777;
+        }
+        .back-button {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 12px 25px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+            background-color: #007bff;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .back-button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .outcome-win {
+            color: #28a745; /* Green */
+            font-weight: bold;
+        }
+        .outcome-loss {
+            color: #dc3545; /* Red */
+            font-weight: bold;
+        }
+        .outcome-draw {
+            color: #ffc107; /* Yellow/Orange */
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>تاریخچه مسابقات {{ current_username }}</h1>
+
+        {% if matches %}
+            <table class="match-table">
+                <thead>
+                    <tr>
+                        <th>شناسه بازی</th>
+                        <th>حریف</th>
+                        <th>امتیاز شما</th>
+                        <th>امتیاز حریف</th>
+                        <th>نتیجه</th>
+                        <th>زمان شروع</th>
+                        <th>زمان پایان</th>
+                        <th>وضعیت</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for match in matches %}
+                    <tr>
+                        <td>{{ match.session_id }}</td>
+                        <td>{{ match.opponent_username }}</td>
+                        <td>{{ match.your_score }}</td>
+                        <td>{{ match.opponent_score }}</td>
+                        <td class="{% if match.outcome == 'برد' %}outcome-win{% elif match.outcome == 'باخت' %}outcome-loss{% elif match.outcome == 'تساوی' %}outcome-draw{% endif %}">
+                            {{ match.outcome }}
+                        </td>
+                        <td>{{ match.start_time }}</td>
+                        <td>{{ match.end_time }}</td>
+                        <td>{{ match.status }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="no-matches">هیچ مسابقه تکمیل شده‌ای یافت نشد.</p>
+        {% endif %}
+
+        <a href="{{ url_for('profile') }}" class="back-button">بازگشت به پروفایل</a>
+    </div>
+</body>
+</html>

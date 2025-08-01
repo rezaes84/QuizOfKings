@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>درخواست‌های بازی</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            direction: rtl;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 25px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+        }
+        .request-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+        .request-item {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 17px;
+        }
+        .request-item button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .request-item button:hover {
+            background-color: #0056b3;
+        }
+        .no-requests {
+            color: #666;
+            font-style: italic;
+            margin-top: 20px;
+        }
+        .back-button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #6c757d;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .back-button:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>درخواست‌های بازی</h1>
+        {% if requests %}
+            <ul class="request-list">
+                {% for request in requests %}
+                    <li class="request-item">
+                        <span>درخواست از: <strong>{{ request.player1_username }}</strong> (شناسه جلسه: {{ request.session_id }})</span>
+                        <button onclick="acceptGame({{ request.session_id }})">پیوستن به بازی</button>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="no-requests">هیچ درخواست بازی فعالی وجود ندارد.</p>
+        {% endif %}
+        <a href="/profile" class="back-button">بازگشت به پروفایل</a>
+    </div>
+
+    <script>
+        function acceptGame(sessionId) {
+            fetch('/accept_game', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ session_id: sessionId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    if (data.redirect_to) {
+                        window.location.href = data.redirect_to;
+                    }
+                } else {
+                    alert('خطا در پذیرش بازی: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error accepting game:', error);
+                alert('خطا در برقراری ارتباط با سرور برای پذیرش بازی.');
+            });
+        }
+
+        let pollingGameRequestsInterval;
+        const currentUserId = {{ session.get('user_id', 'null') | tojson }};
+
+        if (currentUserId !== null) {
+            // Find if there's an active session where this user is player1 and game started
+            // This is primarily for player1 who made a request and is now checking game_requests,
+            // but the game might have already been accepted and started by player2.
+            const checkInitialRedirect = async () => {
+                const response = await fetch(`/check_game_status/0`); // Dummy session_id for a general check
+                const data = await response.json();
+                if (data.success && data.status === 'active' && data.category && data.player1_id === currentUserId) {
+                    clearInterval(pollingGameRequestsInterval); // Stop any existing polling
+                    alert('بازی شما آغاز شد!');
+                    window.location.href = `/game?session_id=${data.session_id}&category=${data.category}`;
+                } else if (data.success && data.status === 'waiting_for_player2_category_selection' && data.player1_id === currentUserId && data.player2_id) {
+                    clearInterval(pollingGameRequestsInterval); // Stop any existing polling
+                    alert('بازی شما پذیرفته شد! بازیکن مقابل در حال انتخاب دسته‌بندی است.');
+                    window.location.href = `/waiting_for_game/${data.session_id}`;
+                }
+            };
+
+            // It's better to poll for active game sessions that *this* user is involved in.
+            // We need to fetch the sessions for player1, not just check one session ID.
+            // For simplicity, we'll continue using a single check_game_status, but in a real app,
+            // a dedicated endpoint to get 'my_active_sessions' would be better.
+
+            // Instead of polling with a dummy ID, we need to know the session ID
+            // from the active game list on the profile page, or if the user was redirected here after initiating a game.
+            // For now, we'll assume the most recent requested game is the one to poll.
+            // A more robust solution would pass the session_id to game_requests.html if user requested a game.
+
+            // Since game_requests.html lists all available requests, if player1 made a request,
+            // they would ideally be on waiting_for_game.html. If they navigate here,
+            // they might be looking for *their* game or others.
+            // This polling logic here is a fallback for Player 1 getting to this page while their game starts.
+
+            // The simplest approach for Player 1: if they are on `game_requests.html`,
+            // and their previously requested game is accepted, they should be redirected.
+            // We can improve this by having the server tell Player 1 *which* session to poll.
+
+            // For now, let's assume the user is only on game_requests.html to *join* a game.
+            // The polling logic here is redundant if Player 1 is already on waiting_for_game.html.
+            // So, remove specific polling for Player 1 in game_requests.html.
+            // The 'acceptGame' function will handle redirection for Player 2.
+            // Player 1 will be on waiting_for_game.html after requesting game, and its polling handles it.
+        }
+    </script>
+</body>
+</html>

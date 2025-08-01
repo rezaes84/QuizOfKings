@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت کاربران</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            direction: rtl;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+        }
+        h1 {
+            color: #dc3545; /* Red for user management */
+            margin-bottom: 30px;
+            font-size: 2.2em;
+        }
+        .message {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: right;
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+        .user-list {
+            list-style: none;
+            padding: 0;
+        }
+        .user-item {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: right;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        .user-item p {
+            margin: 5px 0;
+            font-size: 1.1em;
+            width: 100%;
+        }
+        .user-item strong {
+            color: #0056b3;
+        }
+        .user-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+        .user-actions button {
+            padding: 8px 15px;
+            font-size: 0.95em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+        .user-actions button.block {
+            background-color: #dc3545; /* Red */
+        }
+        .user-actions button.block:hover {
+            background-color: #c82333;
+        }
+        .user-actions button.unblock {
+            background-color: #28a745; /* Green */
+        }
+        .user-actions button.unblock:hover {
+            background-color: #218838;
+        }
+        .status-blocked {
+            color: red;
+            font-weight: bold;
+        }
+        .status-active {
+            color: green;
+            font-weight: bold;
+        }
+        .back-button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+        }
+        .back-button:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>مدیریت کاربران</h1>
+
+        {% if message %}
+        <div class="message {% if 'موفقیت' in message %}success{% else %}error{% endif %}">
+            {{ message }}
+        </div>
+        {% endif %}
+
+        {% if users %}
+        <ul class="user-list">
+            {% for user in users %}
+            <li class="user-item">
+                <p><strong>شناسه کاربر:</strong> {{ user.id }}</p>
+                <p><strong>نام کاربری:</strong> {{ user.username }}</p>
+                <p><strong>ایمیل:</strong> {{ user.email }}</p>
+                <p><strong>وضعیت:</strong>
+                    {% if user.is_blocked %}
+                        <span class="status-blocked">مسدود شده</span>
+                    {% else %}
+                        <span class="status-active">فعال</span>
+                    {% endif %}
+                </p>
+
+                <div class="user-actions">
+                    {% if user.id != current_admin_id %} {# Prevent admin from blocking/unblocking themselves #}
+                        {% if user.is_blocked %}
+                        <form method="POST" action="{{ url_for('admin_manage_users') }}">
+                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                            <button type="submit" name="action" value="unblock" class="unblock">رفع مسدودیت</button>
+                        </form>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('admin_manage_users') }}">
+                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                            <button type="submit" name="action" value="block" class="block">مسدود کردن</button>
+                        </form>
+                        {% endif %}
+                    {% else %}
+                        <span>(شما هستید)</span>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>هیچ کاربری برای نمایش وجود ندارد.</p>
+        {% endif %}
+
+        <a href="{{ url_for('admin_dashboard') }}" class="back-button">بازگشت به داشبورد ادمین</a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>انتخاب دسته‌بندی</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            direction: rtl;
+        }
+        .category-select button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 20px;
+            margin: 10px;
+        }
+        .category-select button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>لطفاً یک دسته‌بندی انتخاب کنید:</h1>
+        <div class="category-select">
+            <button onclick="selectCategory('Math')">ریاضیات</button>
+            <button onclick="selectCategory('Science')">علمی</button>
+            <button onclick="selectCategory('History')">تاریخ</button>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentSessionId = urlParams.get('session_id');
+        const isNextRound = urlParams.get('next_round') === 'true';
+        console.log("صفحه انتخاب دسته‌بندی بارگذاری شد.");
+        console.log("Current Session ID از URL:", currentSessionId);
+        console.log("آیا برای راند بعدی است؟", isNextRound);
+
+        function selectCategory(category) {
+            if (!currentSessionId) {
+                alert("خطا: شناسه جلسه بازی یافت نشد.");
+                console.error("خطا: currentSessionId در جاوااسکریپت تهی یا نامعتبر است.");
+                return;
+            }
+
+            fetch('/select_category_and_start_game', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    category: category
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    if (data.redirect_to) {
+                        window.location.href = data.redirect_to;
+                    } else {
+
+                        window.location.href = `/game?session_id=${currentSessionId}&category=${category}`;
+                    }
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error selecting category:', error);
+                alert('خطا در انتخاب دسته‌بندی.');
+            });
+        }
+    </script>
+</body>
+</html>

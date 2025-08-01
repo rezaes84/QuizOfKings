@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جدول رده‌بندی بازیکنان</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            background-color: #f4f7f6;
+            color: #333;
+            direction: rtl;
+        }
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            text-align: right;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        .button-group {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .button-group a {
+            padding: 10px 20px;
+            font-size: 1em;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            text-decoration: none;
+            color: white;
+            display: inline-block;
+            text-align: center;
+            background-color: #007bff; /* Default color */
+        }
+        .button-group a:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .button-group a.active {
+            background-color: #28a745; /* Active tab color */
+            pointer-events: none; /* Disable click on active tab */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            text-align: right;
+        }
+        th {
+            background-color: #e9f5ee;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .back-button {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 10px 20px;
+            background-color: #6c757d;
+            color: white;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+        }
+        .back-button:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>جدول رده‌بندی بازیکنان (
+            {% if current_ranking_type == 'all_time' %}
+                تمام دوران
+            {% elif current_ranking_type == 'weekly' %}
+                هفتگی
+            {% elif current_ranking_type == 'monthly' %}
+                ماهانه
+            {% elif current_ranking_type == 'win_rate' %}
+                نرخ برد
+            {% else %}
+                نامشخص
+            {% endif %}
+            )
+        </h1>
+
+        <div class="button-group">
+            <a href="{{ url_for('leaderboard', type='all_time') }}" class="{% if current_ranking_type == 'all_time' %}active{% endif %}">تمام دوران</a>
+            <a href="{{ url_for('leaderboard', type='weekly') }}" class="{% if current_ranking_type == 'weekly' %}active{% endif %}">هفتگی</a>
+            <a href="{{ url_for('leaderboard', type='monthly') }}" class="{% if current_ranking_type == 'monthly' %}active{% endif %}">ماهانه</a>
+            <a href="{{ url_for('leaderboard', type='win_rate') }}" class="{% if current_ranking_type == 'win_rate' %}active{% endif %}">نرخ برد</a> {# NEW: Win Rate Button #}
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>رتبه</th>
+                    <th>نام کاربری</th>
+                    <th>
+                        {% if current_ranking_type == 'all_time' %}
+                            XP
+                        {% elif current_ranking_type == 'win_rate' %}
+                            نرخ برد
+                        {% else %}
+                            امتیاز (پاسخ صحیح)
+                        {% endif %}
+                    </th>
+                    <th>بازی‌های انجام شده</th>
+                    <th>بازی‌های برده</th>
+                    <th>بازی‌های باخته</th>
+                    <th>بازی‌های مساوی</th>
+                    <th>نسبت برد به باخت</th>
+                    <th>دقت پاسخ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if top_players %}
+                    {% for player in top_players %}
+                    <tr>
+                        <td>{{ player.rank }}</td>
+                        <td>{{ player.username }}</td>
+                        <td>{{ player.score }}</td> {# Score will now be formatted in app.py for win_rate #}
+                        <td>{{ player.games_played }}</td>
+                        <td>{{ player.games_won }}</td>
+                        <td>{{ player.games_lost }}</td>
+                        <td>{{ player.games_drawn }}</td>
+                        <td>{{ player.win_loss_ratio }}</td> {# win_loss_ratio is now formatted in app.py #}
+                        <td>{{ player.accuracy }}%</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="9">هیچ بازیکنی در این رده‌بندی یافت نشد.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <a href="{{ url_for('profile') }}" class="back-button">بازگشت به پروفایل</a>
+    </div>
+</body>
+</html>

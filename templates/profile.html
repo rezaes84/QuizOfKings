@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پروفایل کاربر</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            background-color: #f4f7f6;
+            color: #333;
+            direction: rtl;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            text-align: right;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        .profile-info p {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        .stat-item {
+            background-color: #e9f5ee;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 1em;
+            color: #34495e;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        .stat-item strong {
+            display: block;
+            font-size: 1.3em;
+            color: #28a745;
+            margin-bottom: 5px;
+        }
+        .button-group {
+            margin-top: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+        .button-group button, .button-group a {
+            padding: 12px 25px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            text-decoration: none;
+            color: white;
+            display: inline-block;
+            text-align: center;
+        }
+        .button-group button.primary, .button-group a.primary {
+            background-color: #007bff;
+        }
+        .button-group button.primary:hover, .button-group a.primary:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .button-group button.secondary, .button-group a.secondary {
+            background-color: #6c757d;
+        }
+        .button-group button.secondary:hover, .button-group a.secondary:hover {
+            background-color: #5a6268;
+            transform: translateY(-2px);
+        }
+        .button-group button.danger, .button-group a.danger {
+            background-color: #dc3545;
+        }
+        .button-group button.danger:hover, .button-group a.danger:hover {
+            background-color: #c82333;
+            transform: translateY(-2px);
+        }
+        .active-games-section {
+            margin-top: 40px;
+            text-align: right;
+        }
+        .active-games-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+        .game-card {
+            background-color: #e6f2ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        .game-card p {
+            margin: 0;
+            font-size: 1em;
+            color: #34495e;
+        }
+        .game-card .game-link {
+            padding: 8px 15px;
+            background-color: #28a745;
+            color: white;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.95em;
+            transition: background-color 0.3s ease;
+        }
+        .game-card .game-link:hover {
+            background-color: #218838;
+        }
+        .message-box {
+            background-color: #f0f8ff;
+            border: 1px solid #cce5ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.1em;
+            color: #0056b3;
+        }
+        .message-box.error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .message-box.success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>پروفایل کاربر: {{ username }}</h1>
+        <div class="profile-info">
+            <p><strong>نام کاربری:</strong> {{ username }}</p>
+            <p><strong>ایمیل:</strong> {{ email }}</p>
+        </div>
+
+        {% if player_states %}
+        <div class="stats-grid">
+            <div class="stat-item">
+                <strong>{{ player_states.games_played }}</strong>
+                <span>بازی‌های انجام شده</span>
+            </div>
+            <div class="stat-item">
+                <strong>{{ player_states.games_won }}</strong>
+                <span>بازی‌های برده</span>
+            </div>
+            <div class="stat-item">
+                <strong>{{ player_states.games_lost }}</strong>
+                <span>بازی‌های باخته</span>
+            </div>
+            <div class="stat-item">
+                <strong>{{ player_states.games_drawn }}</strong> <!-- NEW: بازی‌های مساوی -->
+                <span>بازی‌های مساوی</span>
+            </div>
+            <div class="stat-item">
+                <strong>
+                    {% if player_states.win_loss_ratio == 'inf' %}
+                        ∞
+                    {% elif player_states.win_loss_ratio is not none %}
+                        {{ "%.2f" % player_states.win_loss_ratio }}
+                    {% else %}
+                        0.00
+                    {% endif %}
+                </strong>
+                <span>نسبت برد به باخت</span>
+            </div>
+            <div class="stat-item">
+                <strong>{{ "%.2f" % player_states.accuracy }}%</strong>
+                <span>دقت پاسخ</span>
+            </div>
+            <div class="stat-item">
+                <strong>{{ player_states.xp }}</strong>
+                <span>امتیاز (XP)</span>
+            </div>
+            <div class="stat-item">
+                <strong>{{ player_states.rank }}</strong>
+                <span>رتبه</span>
+            </div>
+            <div class="stat-item">
+                <strong>{{ player_states.total_questions_answered }}</strong>
+                <span>کل سوالات پاسخ داده شده</span>
+            </div>
+            <div class="stat-item">
+                <strong>{{ player_states.total_correct_answers }}</strong>
+                <span>کل پاسخ‌های صحیح</span>
+            </div>
+        </div>
+        {% else %}
+        <p>آمار بازیکن در دسترس نیست.</p>
+        {% endif %}
+
+        <div class="button-group">
+            {% if not is_admin_user %}
+            <button class="primary" onclick="requestGame()">درخواست بازی جدید</button>
+            <a href="{{ url_for('game_requests') }}" class="secondary">مشاهده درخواست‌های بازی</a>
+            <a href="{{ url_for('match_history') }}" class="secondary">تاریخچه مسابقات</a>
+            {% endif %}
+            <a href="{{ url_for('add_question') }}" class="secondary">افزودن سوال جدید</a>
+            <a href="{{ url_for('leaderboard') }}" class="secondary">جدول رده‌بندی بازیکنان</a>
+            <a href="{{ url_for('top_categories') }}" class="secondary">دسته‌بندی‌های برتر</a>
+            {% if can_access_admin_dashboard %}
+            <a href="{{ url_for('admin_dashboard') }}" class="danger">داشبورد مدیر</a>
+            {% endif %}
+            <button class="danger" onclick="logout()">خروج</button>
+        </div>
+
+        <div class="active-games-section">
+            <h2>بازی‌های فعال شما</h2>
+            {% if active_games %}
+                {% for game in active_games %}
+                    <div class="game-card">
+                        <p><strong>شناسه جلسه:</strong> {{ game.session_id }}</p>
+                        <p><strong>بازیکن مقابل:</strong> {{ game.opponent_username }}</p>
+                        <p><strong>وضعیت:</strong> {{ game.status }}</p>
+                        <p><strong>راند فعلی:</strong> {{ game.current_round }}</p>
+                        <p><strong>دسته‌بندی:</strong> {{ game.category if game.category else 'در انتظار انتخاب' }}</p>
+                        <a href="{{ url_for('game', session_id=game.session_id, category_id=game.category_id, current_round=game.current_round) }}" class="game-link">ادامه بازی</a>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>شما در حال حاضر بازی فعال ندارید.</p>
+            {% endif %}
+        </div>
+        <div id="global-message-box" class="message-box" style="display: none;"></div>
+    </div>
+
+    <script>
+        const globalMessageBox = document.getElementById('global-message-box');
+
+        function displayMessage(message, type = 'info') {
+            globalMessageBox.textContent = message;
+            globalMessageBox.className = 'message-box'; // Reset classes
+            if (type === 'error') {
+                globalMessageBox.classList.add('error');
+            } else if (type === 'success') {
+                globalMessageBox.classList.add('success');
+            }
+            globalMessageBox.style.display = 'block';
+            console.log(`DISPLAY MESSAGE (${type}): ${message}`);
+        }
+
+        function hideMessage() {
+            globalMessageBox.style.display = 'none';
+        }
+
+        function requestGame() {
+            hideMessage(); // Hide any previous messages
+            fetch('/request_game', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayMessage(data.message, 'success');
+                    if (data.redirect_to) {
+                        setTimeout(() => {
+                            window.location.href = data.redirect_to;
+                        }, 1500); // Short delay for message to show
+                    }
+                } else {
+                    displayMessage(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error requesting game:', error);
+                displayMessage('خطا در درخواست بازی: ' + error.message, 'error');
+            });
+        }
+
+        function logout() {
+            window.location.href = '/logout';
+        }
+
+        // Initial check for category_id in active_games.
+        // The `active_games` list is populated by Flask, and `category_id` is already
+        // included in the `active_game_info` dictionary in `app.py`.
+        // So, the fix is directly in the Jinja2 template for the `href`.
+    </script>
+</body>
+</html>

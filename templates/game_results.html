@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نتایج بازی</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            direction: rtl; /* Right-to-left for Persian */
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        p {
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+        .score-info {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #ecf0f1;
+            border-radius: 8px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .score-box {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .winner-message {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #28a745; /* Green for winner */
+            margin-bottom: 30px;
+        }
+        .button-group {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .button-group a {
+            padding: 12px 25px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .button-group a.primary {
+            background-color: #007bff;
+        }
+        .button-group a.primary:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .button-group a.secondary {
+            background-color: #6c757d;
+        }
+        .button-group a.secondary:hover {
+            background-color: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        /* --- Styles for Question Review Section --- */
+        .question-review-section {
+            margin-top: 40px;
+            text-align: right; /* Align content to the right for RTL */
+        }
+        .question-item {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            text-align: right; /* Ensure text is right-aligned */
+        }
+        .question-item h3 {
+            font-size: 1.4em;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            border-bottom: 1px dashed #ccc;
+            padding-bottom: 10px;
+        }
+        .question-item p {
+            margin-bottom: 10px;
+        }
+        .question-item .option {
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            background-color: #e9ecef;
+            color: #333;
+            font-size: 1em;
+        }
+        .question-item .correct-option {
+            background-color: #d4edda; /* Light green */
+            color: #155724; /* Dark green text */
+            font-weight: bold;
+            border: 1px solid #28a745;
+        }
+        .question-item .player-answer {
+            margin-top: 15px;
+            font-weight: bold;
+            padding: 5px 0;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+        .question-item .player-answer.correct {
+            color: #28a745; /* Green for correct answer */
+        }
+        .question-item .player-answer.wrong {
+            color: #dc3545; /* Red for wrong answer */
+        }
+        .question-item .player-answer span {
+            font-weight: normal; /* Make the actual answer text normal */
+        }
+        .question-item .correct-answer-display {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #17a2b8; /* Info blue for correct answer display */
+        }
+        .question-item .correct-answer-display span {
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>نتایج بازی</h1>
+        <p>شناسه جلسه بازی: <strong>{{ session_id }}</strong></p>
+
+        <div class="score-info">
+            <div class="score-box">
+                <p><strong>{{ p1_username }}:</strong> {{ p1_final_score }} امتیاز</p>
+            </div>
+            <div class="score-box">
+                <p><strong>{{ p2_username }}:</strong> {{ p2_final_score }} امتیاز</p>
+            </div>
+        </div>
+
+        <p class="winner-message">{{ winner_message }}</p>
+
+        <div class="button-group">
+            <a href="{{ url_for('profile') }}" class="primary">بازگشت به پروفایل</a>
+            <a href="{{ url_for('leaderboard') }}" class="secondary">جدول رده‌بندی</a>
+        </div>
+
+        <div class="question-review-section">
+            <h2>مرور سوالات بازی</h2>
+            {% if reviewed_questions %}
+                {% for q in reviewed_questions %}
+                <div class="question-item">
+                    <h3>راند {{ q.round_number }} - سوال {{ loop.index }}: {{ q.question_text }}</h3>
+                    <p class="option">گزینه A: {{ q.option_a }}</p>
+                    <p class="option">گزینه B: {{ q.option_b }}</p>
+                    <p class="option">گزینه C: {{ q.option_c }}</p>
+                    <p class="option">گزینه D: {{ q.option_d }}</p>
+
+                    <p class="player-answer {% if q.player1_answer.is_correct %}correct{% else %}wrong{% endif %}">
+                        پاسخ {{ p1_username }}: <span>{{ q.player1_answer.submitted if q.player1_answer.submitted else 'پاسخ داده نشده' }}</span>
+                    </p>
+                    <p class="player-answer {% if q.player2_answer.is_correct %}correct{% else %}wrong{% endif %}">
+                        پاسخ {{ p2_username }}: <span>{{ q.player2_answer.submitted if q.player2_answer.submitted else 'پاسخ داده نشده' }}</span>
+                    </p>
+                    <p class="correct-answer-display">
+                        پاسخ صحیح: <span class="correct-option">{{ q.correct_answer }}</span>
+                    </p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>هیچ سوالی برای مرور در این بازی یافت نشد.</p>
+            {% endif %}
+        </div>
+
+    </div>
+</body>
+</html>

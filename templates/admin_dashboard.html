@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>داشبورد ادمین</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            direction: rtl; /* Right-to-left for Persian */
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+        }
+        h1 {
+            color: #ffc107; /* Admin color */
+            margin-bottom: 30px;
+            font-size: 2.2em;
+        }
+        .button-group {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column; /* Stack buttons vertically */
+            gap: 15px; /* Spacing between buttons */
+            align-items: center; /* Center buttons horizontally */
+        }
+        .button-group a.button {
+            padding: 15px 30px;
+            font-size: 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            text-decoration: none;
+            color: white;
+            width: 80%; /* Make buttons take more width */
+            max-width: 350px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .button-group a.button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .button-group a.manage-questions {
+            background-color: #007bff; /* Blue */
+        }
+        .button-group a.manage-questions:hover {
+            background-color: #0056b3;
+        }
+        .button-group a.manage-users {
+            background-color: #dc3545; /* Red */
+        }
+        .button-group a.manage-users:hover {
+            background-color: #c82333;
+        }
+        .button-group a.back-profile {
+            background-color: #6c757d; /* Gray */
+        }
+        .button-group a.back-profile:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>داشبورد ادمین</h1>
+
+        <div class="button-group">
+            {% if can_manage_questions %}
+                <a href="{{ url_for('admin_manage_questions') }}" class="button manage-questions">مدیریت سوالات</a>
+            {% endif %}
+            {% if can_block_users %}
+                <a href="{{ url_for('admin_manage_users') }}" class="button manage-users">مدیریت کاربران</a>
+            {% endif %}
+            <a href="{{ url_for('profile') }}" class="button back-profile">بازگشت به پروفایل</a>
+        </div>
+    </div>
+</body>
+</html>

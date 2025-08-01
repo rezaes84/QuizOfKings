@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سوالات بازی</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            direction: rtl;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+        }
+        h1 {
+            font-size: 24px;
+        }
+        .question {
+            font-size: 20px;
+            margin-top: 20px;
+        }
+        .options button {
+            display: block;
+            margin: 10px auto;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .options button:hover {
+            background-color: #45a049;
+        }
+        .options button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #timer {
+            font-size: 30px;
+            color: red;
+            margin-top: 20px;
+        }
+        /* --- استایل جدید برای بخش راند بعدی --- */
+        #next-round-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            display: none;
+        }
+        #next-round-button {
+            padding: 12px 25px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        #next-round-button:hover {
+            background-color: #0056b3;
+        }
+        /* Styles for displayMessage */
+        .message-box {
+            background-color: #f0f8ff;
+            border: 1px solid #cce5ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.1em;
+            color: #0056b3;
+        }
+        .message-box.error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .message-box.success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>سوالات بازی از دسته‌بندی <span id="category-name"></span></h1>
+        <p>راند: <span id="current-round-display"></span></p>
+
+        <div id="question-container">
+            <!-- سوالات و گزینه‌ها اینجا قرار می‌گیرند -->
+            <p id="loading-message">در حال بارگذاری سوالات...</p>
+        </div>
+
+        <div id="timer">30</div>
+
+        <div id="next-round-section">
+            <h2>راند به پایان رسید!</h2>
+            <p id="round-end-player-message">منتظر همگام‌سازی با سرور...</p>
+            <button id="next-round-button" onclick="handleNextRoundButton()">انتخاب دسته‌بندی راند بعدی</button>
+        </div>
+
+        <div id="global-message-box" class="message-box" style="display: none;"></div>
+    </div>
+
+    <script>
+        // Declarations at the top-level scope (global) to avoid 'already declared' errors
+        let currentQuestionIndex = 0;
+        let questions = [];
+        let timeLeft = 30;
+        let category = ''; // This will store the category NAME for display
+        let timerInterval;
+        let answeredQuestionsInCurrentRound = 0;
+        const MAX_QUESTIONS_PER_PLAYER_PER_ROUND = 3;
+
+        const sessionId = {{ session_id | tojson }};
+        let currentRoundNumber = {{ initial_round }};
+        category = {{ initial_category | tojson }}; // Category Name
+        const userId = {{ user_id | tojson }};
+        let currentCategoryId = {{ initial_category_id | tojson }}; // Category ID (NEW)
+
+        // Flags for game state
+        let isRoundProcessing = false;
+        let roundEndedByThisPlayer = false;
+        let pollIntervalForNextRound;
+
+        // Initial UI updates based on Flask context
+        document.getElementById('category-name').innerText = category;
+        document.getElementById('current-round-display').innerText = currentRoundNumber;
+
+        const globalMessageBox = document.getElementById('global-message-box');
+
+        function displayMessage(message, type = 'info') {
+            globalMessageBox.textContent = message;
+            globalMessageBox.className = 'message-box'; // Reset classes
+            if (type === 'error') {
+                globalMessageBox.classList.add('error');
+            } else if (type === 'success') {
+                globalMessageBox.classList.add('success');
+            }
+            globalMessageBox.style.display = 'block';
+            console.log(`DISPLAY MESSAGE (${type}): ${message}`);
+        }
+
+        function hideMessage() {
+            globalMessageBox.style.display = 'none';
+        }
+
+
+        function fetchQuestions() {
+            console.log(`DEBUG JS (fetchQuestions) [User ${userId}]: Called for Session ${sessionId}, Round ${currentRoundNumber}, Category ID ${currentCategoryId}.`);
+
+            // If the next round section is already visible, it means we're in a waiting state for category selection.
+            // Do not attempt to fetch questions or display loading messages in the question container.
+            if (document.getElementById('next-round-section').style.display === 'block') {
+                console.log(`DEBUG JS (fetchQuestions) [User ${userId}]: Skipping fetchQuestions as next-round-section is active.`);
+                return;
+            }
+
+            // Display loading message in the question container
+            document.getElementById('question-container').innerHTML = '<p id="loading-message">در حال بارگذاری سوالات...</p>';
+            hideMessage(); // Hide any previous global messages
+
+            // Validate essential parameters
+            if (!currentCategoryId || currentCategoryId === 'None' || currentCategoryId === null || currentCategoryId === 'null' || (typeof currentCategoryId === 'string' && currentCategoryId.trim() === '')) {
+                console.error(`DEBUG JS (fetchQuestions) [User ${userId}]: شناسه دسته‌بندی برای دریافت سوالات تعریف نشده است یا مقدار 'None'/'null'/خالی است.`, {category: category, currentCategoryId: currentCategoryId, sessionId, currentRoundNumber});
+                document.getElementById('question-container').style.display = 'none'; // Hide questions
+                document.getElementById('timer').style.display = 'none'; // Hide timer
+                document.getElementById('next-round-section').style.display = 'block'; // Show waiting section
+                document.getElementById('round-end-player-message').innerText = 'خطا: دسته‌بندی بازی نامعتبر است. منتظر بازیکن مقابل یا شروع بازی جدید...';
+                document.getElementById('next-round-button').style.display = 'none';
+                disableAnswerButtons();
+                clearInterval(timerInterval);
+                return;
+            }
+            if (!sessionId) {
+                console.error(`DEBUG JS (fetchQuestions) [User ${userId}]: شناسه جلسه برای دریافت سوالات یافت نشد.`, {sessionId, currentRoundNumber, category});
+                document.getElementById('question-container').innerHTML = '<p style="color: red;">خطا: شناسه جلسه بازی یافت نشد.</p>';
+                disableAnswerButtons();
+                clearInterval(timerInterval);
+                return;
+            }
+
+            // Reset flags and UI for a new round (assuming a valid category is present)
+            isRoundProcessing = false;
+            roundEndedByThisPlayer = false;
+            document.getElementById('question-container').style.display = 'block'; // Ensure question area is visible
+            document.getElementById('timer').style.display = 'block';
+            document.getElementById('next-round-section').style.display = 'none'; // Ensure waiting area is hidden
+
+            // Clear any existing timers/intervals
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            if (pollIntervalForNextRound) {
+                clearInterval(pollIntervalForNextRound);
+                console.log(`DEBUG JS (fetchQuestions) [User ${userId}]: Cleared previous next round polling interval.`);
+            }
+
+            // Fetch questions from the server - NOW USING category_id
+            fetch(`/get_questions_by_category?session_id=${sessionId}&round=${currentRoundNumber}&category_id=${currentCategoryId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(errorData => { throw new Error(errorData.message || `خطا در شبکه یا سرور هنگام دریافت سوالات (HTTP Status: ${response.status}).`); });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(`DEBUG JS (fetchQuestions) [User ${userId}]: Data received for questions:`, data);
+                    if (data.questions && data.questions.length > 0) {
+                        questions = data.questions;
+                        questions = questions.slice(0, MAX_QUESTIONS_PER_PLAYER_PER_ROUND);
+                        console.log(`DEBUG JS (fetchQuestions) [User ${userId}]: Questions loaded: ${questions.length}`);
+
+                        currentQuestionIndex = 0;
+                        answeredQuestionsInCurrentRound = 0;
+                        console.log(`DEBUG JS (fetchQuestions) [User ${userId}]: Starting new round display. Answered in current round: ${answeredQuestionsInCurrentRound}. Total questions for this player this round: ${questions.length}`);
+                        showQuestion();
+                    } else {
+                        // No questions found for the category - transition to end round state
+                        document.getElementById('question-container').innerHTML = `<p style="color: red;">${data.message || 'هیچ سوالی در این دسته‌بندی یافت نشد. راند به پایان می‌رسد.'}</p>`;
+                        endRound();
+                    }
+                })
+                .catch(error => {
+                    console.error(`DEBUG JS (fetchQuestions) [User ${userId}]: Error fetching questions:`, error);
+                    document.getElementById('question-container').innerHTML = `<p style="color: red;">خطا در بارگذاری سوالات: ${error.message}</p>`;
+                    endRound();
+                });
+        }
+
+        function showQuestion() {
+            console.log(`DEBUG JS (showQuestion) [User ${userId}]: Called. answeredQuestionsInCurrentRound: ${answeredQuestionsInCurrentRound}, roundEndedByThisPlayer: ${roundEndedByThisPlayer}`);
+
+            if (roundEndedByThisPlayer || answeredQuestionsInCurrentRound >= MAX_QUESTIONS_PER_PLAYER_PER_ROUND) {
+                console.log(`DEBUG JS (showQuestion) [User ${userId}]: Player has finished their questions or round is ended. Calling endRound() and stopping.`);
+                endRound();
+                return;
+            }
+
+            console.log(`DEBUG JS (showQuestion) [User ${userId}]: Displaying question ${answeredQuestionsInCurrentRound + 1} (internal index: ${currentQuestionIndex}). Answered so far by this player: ${answeredQuestionsInCurrentRound}. Total questions for this player this round: ${questions.length}`);
+
+            if (currentQuestionIndex < questions.length) {
+                let container = document.getElementById('question-container');
+                container.innerHTML = '';
+
+                const question = questions[currentQuestionIndex];
+
+                const questionDiv = document.createElement('div');
+                questionDiv.classList.add('question');
+                questionDiv.innerHTML = `
+                    <p><strong>سوال ${answeredQuestionsInCurrentRound + 1}:</strong> ${question.question_text}</p>
+                    <div class="options">
+                        <button data-answer="A" onclick="submitAnswer('${question.id}', 'A')">گزینه A: ${question.option_a}</button>
+                        <button data-answer="B" onclick="submitAnswer('${question.id}', 'B')">گزینه B: ${question.option_b}</button>
+                        <button data-answer="C" onclick="submitAnswer('${question.id}', 'C')">گزینه C: ${question.option_c}</button>
+                        <button data-answer="D" onclick="submitAnswer('${question.id}', 'D')">گزینه D: ${question.option_d}</button>
+                    </div>
+                `;
+                container.appendChild(questionDiv);
+
+                enableAnswerButtons();
+
+                timeLeft = 30;
+                document.getElementById('timer').innerText = timeLeft;
+                startTimer();
+            } else {
+                console.log(`DEBUG JS (showQuestion) [User ${userId}]: No more questions in fetched list or questions array exhausted. Answered by this player: ${answeredQuestionsInCurrentRound}. Calling endRound().`);
+                endRound();
+            }
+        }
+
+        function disableAnswerButtons() {
+            const buttons = document.querySelectorAll('#question-container .options button');
+            buttons.forEach(button => {
+                button.disabled = true;
+            });
+            console.log(`DEBUG JS (disableAnswerButtons) [User ${userId}]: Answer buttons disabled.`);
+        }
+
+        function enableAnswerButtons() {
+            const buttons = document.querySelectorAll('#question-container .options button');
+            buttons.forEach(button => {
+                button.disabled = false;
+            });
+            console.log(`DEBUG JS (enableAnswerButtons) [User ${userId}]: Answer buttons enabled.`);
+        }
+
+        function submitAnswer(questionId, answer) {
+            console.log(`DEBUG JS (submitAnswer) [User ${userId}]: Called. answeredQuestionsInCurrentRound: ${answeredQuestionsInCurrentRound}, roundEndedByThisPlayer: ${roundEndedByThisPlayer}`);
+
+            if (roundEndedByThisPlayer || answeredQuestionsInCurrentRound >= MAX_QUESTIONS_PER_PLAYER_PER_ROUND) {
+                console.warn(`DEBUG JS (submitAnswer) [User ${userId}]: Already answered max questions for this round or round ended. Ignoring further submissions.`);
+                disableAnswerButtons();
+                return;
+            }
+
+            console.log(`DEBUG JS (submitAnswer) [User ${userId}]: Submitting answer for Q ID ${questionId}. Answered count BEFORE increment (client-side): ${answeredQuestionsInCurrentRound}`);
+
+            disableAnswerButtons();
+            clearInterval(timerInterval);
+
+            fetch('/submit_answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    question_id: questionId,
+                    answer: answer,
+                    round_number: currentRoundNumber
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(`DEBUG JS (submitAnswer) [User ${userId}]: Data received from server:`, data);
+
+                if (data.success) {
+                    answeredQuestionsInCurrentRound++;
+                    currentQuestionIndex++;
+                    console.log(`DEBUG JS (submitAnswer) [User ${userId}]: Answer submitted successfully. New answered count for this player (client-side): ${answeredQuestionsInCurrentRound}`);
+
+                    showQuestion();
+                } else {
+                    // Display submission specific error without an alert
+                    displayMessage(data.message || 'خطا در ثبت پاسخ.', 'error');
+                    enableAnswerButtons();
+                }
+            })
+            .catch(error => {
+                console.error(`DEBUG JS (submitAnswer) [User ${userId}]: Error submitting answer:`, error);
+                displayMessage(`خطا در شبکه هنگام ثبت پاسخ: ${error.message}`, 'error');
+                enableAnswerButtons();
+            });
+        }
+
+        function endRound() {
+            console.log(`DEBUG JS (endRound) [User ${userId}]: Called. isRoundProcessing: ${isRoundProcessing}, roundEndedByThisPlayer: ${roundEndedByThisPlayer}`);
+            if (isRoundProcessing) {
+                console.log(`DEBUG JS (endRound) [User ${userId}]: Round end processing already in progress. Ignoring duplicate call.`);
+                return;
+            }
+            isRoundProcessing = true;
+            roundEndedByThisPlayer = true;
+
+            clearInterval(timerInterval);
+            console.log(`DEBUG JS (endRound) [User ${userId}]: Round ended. Synchronizing with server...`);
+
+            document.getElementById('question-container').style.display = 'none';
+            document.getElementById('timer').style.display = 'none';
+            document.getElementById('next-round-section').style.display = 'block';
+            document.getElementById('round-end-player-message').innerText = "در حال پردازش پایان راند شما...";
+            document.getElementById('next-round-button').style.display = 'none';
+            hideMessage(); // Hide any global messages
+
+            fetch('/end_round_and_prepare_next', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    round_number: currentRoundNumber,
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                isRoundProcessing = false;
+                console.log(`DEBUG JS (endRound) [User ${userId}]: End Round Data from server:`, data);
+                if (data.success) {
+                    if (data.game_over) {
+                        console.log(`DEBUG JS (endRound) [User ${userId}]: Game is OVER. Redirecting to results page.`);
+                        displayMessage(data.message || "بازی به پایان رسید! مشاهده نتایج.", 'info');
+                        setTimeout(() => {
+                            window.location.href = data.redirect_to;
+                        }, 3000);
+                        return;
+                    }
+
+                    document.getElementById('round-end-player-message').innerText = data.message;
+                    if (data.current_round_number) {
+                        currentRoundNumber = data.current_round_number;
+                        document.getElementById('current-round-display').innerText = currentRoundNumber;
+                        console.log(`DEBUG JS (endRound) [User ${userId}]: Client-side currentRoundNumber updated to ${currentRoundNumber}.`);
+                    }
+
+                    // The button text and action will be determined by the polling function,
+                    // based on whether this player is the chooser or not.
+                    // The button is initially hidden and made visible by polling.
+                    startPollingForNextRound();
+                } else {
+                    document.getElementById('round-end-player-message').innerText = data.message;
+                }
+            })
+            .catch(error => {
+                isRoundProcessing = false;
+                console.error(`DEBUG JS (endRound) [User ${userId}]: Error ending round:`, error);
+                document.getElementById('round-end-player-message').innerText = 'خطا در پایان راند.';
+                document.getElementById('next-round-button').style.display = 'none';
+            });
+        }
+
+        function startTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').innerText = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    const currentQ = questions[currentQuestionIndex];
+                    if (answeredQuestionsInCurrentRound < MAX_QUESTIONS_PER_PLAYER_PER_ROUND) {
+                        console.log(`DEBUG JS (startTimer) [User ${userId}]: Timer ran out. Submitting empty answer.`);
+                        submitAnswer(currentQ ? currentQ.id : null, '');
+                    } else {
+                        console.log(`DEBUG JS (startTimer) [User ${userId}]: Timer ran out, but max questions already answered. Calling endRound().`);
+                        endRound();
+                    }
+                }
+            }, 1000);
+        }
+
+        function startPollingForNextRound() {
+            console.log(`DEBUG JS (startPollingForNextRound) [User ${userId}]: Starting poll for next round status.`);
+            if (pollIntervalForNextRound) {
+                clearInterval(pollIntervalForNextRound);
+                console.log(`DEBUG JS (startPollingForNextRound) [User ${userId}]: Cleared previous polling interval.`);
+            }
+
+            pollIntervalForNextRound = setInterval(() => {
+                fetch(`/check_game_status/${sessionId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(errorData => { throw new Error(errorData.message || `خطا در شبکه یا سرور هنگام پولینگ وضعیت بازی (HTTP Status: ${response.status}).`); });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log(`DEBUG JS (startPollingForNextRound) [User ${userId}]: Polling for next round status data:`, data);
+
+                        if (data.status === 'finished' && data.game_over) {
+                            clearInterval(pollIntervalForNextRound);
+                            displayMessage(data.message || "بازی به پایان رسید! مشاهده نتایج.", 'info');
+                            setTimeout(() => {
+                                window.location.href = data.redirect_to || `/game_results/${sessionId}`;
+                            }, 3000);
+                            return;
+                        }
+
+                        if (data.current_round && data.current_round !== currentRoundNumber) {
+                            currentRoundNumber = data.current_round;
+                            document.getElementById('current-round-display').innerText = currentRoundNumber;
+                            console.log(`DEBUG JS (startPollingForNextRound) [User ${userId}]: Current round number updated to ${currentRoundNumber}.`);
+                        }
+                        // Update category ID if it changed (e.g., if opponent chose a new category)
+                        if (data.category_id && data.category_id !== currentCategoryId) {
+                            currentCategoryId = data.category_id;
+                            console.log(`DEBUG JS (startPollingForNextRound) [User ${userId}]: Current category ID updated to ${currentCategoryId}.`);
+                        }
+                        if (data.category && data.category !== category) {
+                            category = data.category;
+                            document.getElementById('category-name').innerText = category;
+                            console.log(`DEBUG JS (startPollingForNextRound) [User ${userId}]: Current category name updated to ${category}.`);
+                        }
+
+
+                        // Determine button and message based on game status
+                        const nextRoundButton = document.getElementById('next-round-button');
+                        const roundEndMessage = document.getElementById('round-end-player-message');
+
+                        if (data.status === 'waiting_for_player1_category_selection' || data.status === 'waiting_for_player2_category_selection') {
+                            if (data.next_category_chooser_id === userId) {
+                                // This player is the chooser for the next round
+                                roundEndMessage.innerText = 'نوبت شماست که دسته‌بندی راند بعدی را انتخاب کنید.';
+                                nextRoundButton.innerText = 'انتخاب دسته‌بندی راند بعدی';
+                                nextRoundButton.onclick = () => {
+                                    clearInterval(pollIntervalForNextRound); // Stop polling before redirect
+                                    window.location.href = `/select_category_page?session_id=${sessionId}&next_round=true`;
+                                };
+                                nextRoundButton.style.display = 'block';
+                            } else {
+                                // This player is NOT the chooser, waiting for opponent
+                                roundEndMessage.innerText = data.status_message;
+                                nextRoundButton.style.display = 'none';
+                            }
+                        } else if (data.status === 'active' && data.category_id) { // Check for category_id here
+                            // New round is active with a category (chosen by the other player)
+                            // Check if the game is actually ready to display questions (i.e., not already showing questions)
+                            if (document.getElementById('question-container').style.display === 'none' || !questions.length || answeredQuestionsInCurrentRound >= MAX_QUESTIONS_PER_PLAYER_PER_ROUND) {
+                                roundEndMessage.innerText = `راند جدید با دسته‌بندی "${data.category}" آماده است!`;
+                                nextRoundButton.innerText = `شروع راند ${data.current_round}`;
+                                nextRoundButton.onclick = () => {
+                                    clearInterval(pollIntervalForNextRound); // Stop polling before redirect
+                                    // CORRECTED: Pass category_id to game route
+                                    window.location.href = `/game?session_id=${sessionId}&category_id=${data.category_id}&current_round=${data.current_round}`;
+                                };
+                                nextRoundButton.style.display = 'block';
+                            }
+                        } else if (data.status === 'cancelled') {
+                            clearInterval(pollIntervalForNextRound);
+                            displayMessage('بازی لغو شد.', 'info');
+                            setTimeout(() => {
+                                window.location.href = '/profile';
+                            }, 3000);
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`DEBUG JS (startPollingForNextRound) [User ${userId}]: Error polling for next round:`, error);
+                        clearInterval(pollIntervalForNextRound);
+                        document.getElementById('round-end-player-message').innerText = `خطا در همگام‌سازی راند بعدی: ${error.message}`;
+                    });
+            }, 3000);
+        }
+
+        // Consolidated button handler: this function dynamically changes what it does
+        function handleNextRoundButton() {
+            // This function exists as a placeholder. The actual `onclick` logic
+            // for `next-round-button` is dynamically set within `startPollingForNextRound`
+            // based on the game state (e.g., if it's "select category" or "start round").
+            // When this button is clicked, it will execute the most recently assigned `onclick` function.
+        }
+
+
+        window.onload = function() {
+            console.log(`DEBUG JS (window.onload) [User ${userId}]: Initial sessionId (from Flask):`, sessionId);
+            console.log(`DEBUG JS (window.onload) [User ${userId}]: Initial Round (from Flask):`, currentRoundNumber);
+            console.log(`DEBUG JS (window.onload) [User ${userId}]: Initial Category Name (from Flask):`, category);
+            console.log(`DEBUG JS (window.onload) [User ${userId}]: Initial Category ID (from Flask):`, currentCategoryId);
+
+
+            document.getElementById('category-name').innerText = category;
+            document.getElementById('current-round-display').innerText = currentRoundNumber;
+
+            // Check if a valid category ID is available to start fetching questions immediately
+            const isCategoryValidAndReady = (currentCategoryId !== null && currentCategoryId !== '' && currentCategoryId !== 'None' && currentCategoryId !== 'null');
+
+            if (isCategoryValidAndReady) {
+                 console.log(`DEBUG JS (window.onload) [User ${userId}]: Valid category ID found (${currentCategoryId}). Proceeding to fetch questions for active round.`);
+                 document.getElementById('question-container').style.display = 'block';
+                 document.getElementById('timer').style.display = 'block';
+                 document.getElementById('next-round-section').style.display = 'none';
+                 fetchQuestions();
+            } else {
+                 console.log(`DEBUG JS (window.onload) [User ${userId}]: Initial category ID is invalid or empty: '${currentCategoryId}'. Assuming waiting for category selection for a new round.`);
+                 document.getElementById('question-container').style.display = 'none';
+                 document.getElementById('timer').style.display = 'none';
+                 document.getElementById('next-round-section').style.display = 'block';
+                 document.getElementById('round-end-player-message').innerText = 'در انتظار انتخاب دسته‌بندی برای راند جدید توسط بازیکن مقابل...';
+                 document.getElementById('next-round-button').style.display = 'none';
+
+                 startPollingForNextRound();
+            }
+        };
+    </script>
+</body>
+</html>

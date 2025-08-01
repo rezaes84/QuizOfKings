@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>در انتظار بازی</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            direction: rtl;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 25px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 18px;
+            color: #555;
+            margin: 10px 0;
+        }
+        .spinner {
+            border: 8px solid rgba(0, 0, 0, 0.1);
+            border-top: 8px solid #007bff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 30px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .back-button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #dc3545;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .back-button:hover {
+            background-color: #c82333;
+        }
+        /* Styles for custom message box */
+        .message-box {
+            background-color: #f0f8ff;
+            border: 1px solid #cce5ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.1em;
+            color: #0056b3;
+        }
+        .message-box.error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .message-box.success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>در انتظار شروع بازی...</h1>
+        <div class="spinner"></div>
+        <p id="status-message">در حال بررسی وضعیت بازی (شناسه جلسه: {{ session_id }})...</p>
+        <a href="/profile" class="back-button">لغو بازی و بازگشت به پروفایل</a>
+        <div id="global-message-box" class="message-box" style="display: none;"></div>
+    </div>
+
+    <script>
+        const sessionId = {{ session_id | tojson }};
+        const userId = {{ user_id | tojson }};
+        let pollInterval;
+
+        const globalMessageBox = document.getElementById('global-message-box');
+
+        function displayMessage(message, type = 'info') {
+            globalMessageBox.textContent = message;
+            globalMessageBox.className = 'message-box'; // Reset classes
+            if (type === 'error') {
+                globalMessageBox.classList.add('error');
+            } else if (type === 'success') {
+                globalMessageBox.classList.add('success');
+            }
+            globalMessageBox.style.display = 'block';
+            console.log(`DISPLAY MESSAGE (${type}): ${message}`);
+        }
+
+        function hideMessage() {
+            globalMessageBox.style.display = 'none';
+        }
+
+        function startPolling() {
+            console.log(`DEBUG JS (waiting_for_game.html) [User ${userId}]: Starting polling for session ${sessionId}.`);
+            pollInterval = setInterval(() => {
+                fetch(`/check_game_status/${sessionId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(errorData => { throw new Error(errorData.message || `خطا در شبکه یا سرور (HTTP Status: ${response.status}).`); });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log(`DEBUG JS (waiting_for_game.html) [User ${userId}]: Polling data:`, data);
+                        document.getElementById('status-message').innerText = data.status_message || 'در حال بررسی وضعیت بازی...';
+                        hideMessage(); // Hide any previous global messages on successful poll
+
+                        if (data.success) {
+                            // Check if the game is active AND category_id is set
+                            if (data.status === 'active' && data.category_id) {
+                                clearInterval(pollInterval); // Stop polling
+                                displayMessage('بازی شما آغاز شد!', 'success'); // Using custom message box
+                                setTimeout(() => {
+                                    // CORRECTED: Pass category_id to game route
+                                    window.location.href = `/game?session_id=${sessionId}&category_id=${data.category_id}&current_round=${data.current_round}`;
+                                }, 1500); // Short delay for message to show
+                            } else if (data.status === 'waiting_for_player1_category_selection' || data.status === 'waiting_for_player2_category_selection') {
+                                // If it's this player's turn to choose category, redirect them
+                                if (data.next_category_chooser_id === userId) {
+                                    clearInterval(pollInterval); // Stop polling
+                                    displayMessage('نوبت شماست که دسته‌بندی را انتخاب کنید!', 'info');
+                                    setTimeout(() => {
+                                        window.location.href = `/select_category_page?session_id=${sessionId}&next_round=true`;
+                                    }, 1500);
+                                } else {
+                                    // Not this player's turn, just update message
+                                    document.getElementById('status-message').innerText = data.status_message;
+                                }
+                            } else if (data.status === 'cancelled') {
+                                clearInterval(pollInterval);
+                                displayMessage('بازی لغو شد.', 'info'); // Using custom message box
+                                setTimeout(() => {
+                                    window.location.href = '/profile';
+                                }, 3000);
+                            } else if (data.status === 'finished' && data.game_over) {
+                                clearInterval(pollInterval);
+                                displayMessage(data.message || "بازی به پایان رسید! مشاهده نتایج.", 'info');
+                                setTimeout(() => {
+                                    window.location.href = data.redirect_to || `/game_results/${sessionId}`;
+                                }, 3000);
+                            }
+                        } else {
+                            // Handle API errors or unsuccessful responses
+                            displayMessage(data.message || 'خطا در بررسی وضعیت بازی.', 'error');
+                            // Consider stopping polling or redirecting on persistent errors
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error polling game status:', error);
+                        displayMessage('خطا در برقراری ارتباط با سرور.', 'error');
+                        // Optionally,clearInterval(pollInterval) and redirect on network error
+                    });
+            }, 3000); // Poll every 3 seconds
+        }
+
+        window.onload = startPolling;
+    </script>
+</body>
+</html>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>انتخاب دسته‌بندی</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            direction: rtl;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+        }
+        h1 {
+            font-size: 24px;
+            color: #333;
+        }
+        .category-buttons button {
+            display: block;
+            width: 80%;
+            margin: 10px auto;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background-color 0.3s ease;
+        }
+        .category-buttons button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        .category-buttons button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .waiting-message {
+            font-size: 20px;
+            color: #555;
+            margin-top: 20px;
+        }
+        .profile-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .profile-button:hover {
+            background-color: #5a6268;
+        }
+        /* Styles for custom message box */
+        .message-box {
+            background-color: #f0f8ff;
+            border: 1px solid #cce5ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.1em;
+            color: #0056b3;
+        }
+        .message-box.error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .message-box.success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>انتخاب دسته‌بندی برای راند بعدی</h1>
+        <div id="category-selection-section">
+            <p>لطفاً یک دسته‌بندی برای راند بعدی انتخاب کنید:</p>
+            <div class="category-buttons">
+                {% for category_name in categories %}
+                    <button onclick="selectCategory('{{ category_name }}')">{{ category_name }}</button>
+                {% endfor %}
+            </div>
+        </div>
+        <div id="waiting-for-chooser-section" style="display: none;">
+            <p class="waiting-message">شما انتخاب کننده دسته‌بندی در این راند نیستید. لطفاً منتظر بمانید تا بازیکن مقابل دسته‌بندی را انتخاب کند.</p>
+            <p class="waiting-message" id="poll-status-message">در حال انتظار برای انتخاب دسته‌بندی...</p>
+        </div>
+        <button class="profile-button" onclick="goToProfile()">بازگشت به پروفایل</button>
+        <div id="global-message-box" class="message-box" style="display: none;"></div>
+    </div>
+
+    <script>
+        const sessionId = {{ session_id | tojson }};
+        const userId = {{ user_id | tojson }};
+        const isChooser = {{ is_chooser | tojson }}; // Passed from Flask
+
+        let pollInterval;
+
+        const globalMessageBox = document.getElementById('global-message-box');
+
+        function displayMessage(message, type = 'info') {
+            globalMessageBox.textContent = message;
+            globalMessageBox.className = 'message-box'; // Reset classes
+            if (type === 'error') {
+                globalMessageBox.classList.add('error');
+            } else if (type === 'success') {
+                globalMessageBox.classList.add('success');
+            }
+            globalMessageBox.style.display = 'block';
+            console.log(`DISPLAY MESSAGE (${type}): ${message}`);
+        }
+
+        function hideMessage() {
+            globalMessageBox.style.display = 'none';
+        }
+
+        function selectCategory(categoryName) {
+            console.log(`DEBUG JS (selectCategory) [User ${userId}]: Category selected: ${categoryName}, Session ID: ${sessionId}`);
+            // Disable buttons to prevent multiple clicks
+            const buttons = document.querySelectorAll('#category-selection-section .category-buttons button');
+            buttons.forEach(button => button.disabled = true);
+            hideMessage(); // Hide any previous messages
+
+            fetch('/select_category_and_start_game', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ session_id: sessionId, category: categoryName })
+            })
+            .then(response => {
+                // Re-enable buttons if response is not ok, to allow retries.
+                if (!response.ok) {
+                    buttons.forEach(button => button.disabled = false);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(`DEBUG JS (selectCategory) [User ${userId}]: Response from server:`, data);
+                if (data.success) {
+                    // This is where the chooser redirects to the game page after selecting category
+                    if (data.redirect_to) {
+                        displayMessage(data.message, 'success'); // Using custom message box
+                        setTimeout(() => {
+                            window.location.href = data.redirect_to;
+                        }, 1500); // Short delay for message to show
+                    } else {
+                        // This else block should ideally not be hit if redirect_to is always provided on success.
+                        // But as a fallback, if for some reason no redirect_to, poll for active state.
+                        document.getElementById('poll-status-message').innerText = data.message || 'عملیات با موفقیت انجام شد. در انتظار شروع راند...';
+                        startPollingForGameStatus();
+                    }
+                } else {
+                    displayMessage(data.message, 'error'); // Show error message from server using custom box
+                    buttons.forEach(button => button.disabled = false); // Re-enable buttons on error
+                }
+            })
+            .catch(error => {
+                console.error(`DEBUG JS (selectCategory) [User ${userId}]: Error selecting category:`, error);
+                displayMessage('خطا در انتخاب دسته‌بندی: ' + error.message, 'error'); // Using custom message box
+                buttons.forEach(button => button.disabled = false); // Re-enable buttons on error
+            });
+        }
+
+        function startPollingForGameStatus() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
+            document.getElementById('category-selection-section').style.display = 'none';
+            document.getElementById('waiting-for-chooser-section').style.display = 'block';
+            document.getElementById('poll-status-message').innerText = 'در حال انتظار برای انتخاب دسته‌بندی توسط بازیکن مقابل...';
+            hideMessage(); // Hide any previous messages
+
+            pollInterval = setInterval(() => {
+                fetch(`/check_game_status/${sessionId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(errorData => { throw new Error(errorData.message || `خطا در شبکه یا سرور هنگام پولینگ وضعیت بازی (HTTP Status: ${response.status}).`); });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log(`DEBUG JS (select_category_page polling) [User ${userId}]: Polling game status:`, data);
+                        // CORRECTED: Check for data.category_id to ensure category is set
+                        if (data.status === 'active' && data.category_id) {
+                            clearInterval(pollInterval);
+                            displayMessage(`راند جدید با دسته‌بندی ${data.category} آغاز شد!`, 'success'); // Using custom message box
+                            setTimeout(() => {
+                                // CORRECTED: Pass category_id to game route
+                                window.location.href = `/game?session_id=${sessionId}&category_id=${data.category_id}&current_round=${data.current_round}`;
+                            }, 1500); // Short delay for message to show
+                        } else if (data.status === 'cancelled') {
+                            clearInterval(pollInterval);
+                            displayMessage('بازی لغو شد.', 'info'); // Using custom message box
+                            setTimeout(() => {
+                                window.location.href = '/profile';
+                            }, 3000);
+                        } else if (data.status === 'finished' && data.game_over) {
+                            clearInterval(pollInterval);
+                            displayMessage(data.message || "بازی به پایان رسید! مشاهده نتایج.", 'info'); // Using custom message box
+                            setTimeout(() => {
+                                window.location.href = data.redirect_to || `/game_results/${sessionId}`;
+                            }, 3000);
+                            return;
+                        } else {
+                            // Update status message for the waiting player
+                            document.getElementById('poll-status-message').innerText = data.status_message || 'در حال انتظار برای انتخاب دسته‌بندی توسط بازیکن مقابل...';
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`DEBUG JS (select_category_page polling) [User ${userId}]: Error polling game status:`, error);
+                        clearInterval(pollInterval);
+                        displayMessage(`خطا در همگام‌سازی وضعیت بازی: ${error.message}`, 'error'); // Using custom message box
+                        document.getElementById('poll-status-message').innerText = `خطا در همگام‌سازی وضعیت بازی: ${error.message}`;
+                    });
+            }, 3000);
+        }
+
+        function goToProfile() {
+            clearInterval(pollInterval); // Clear polling when leaving page
+            window.location.href = '/profile';
+        }
+
+        // Initialize display based on whether current user is the chooser
+        window.onload = function() {
+            console.log(`DEBUG JS (select_category_page) [User ${userId}]: Window loaded. Is chooser (from Flask): ${isChooser}`);
+            if (isChooser) {
+                document.getElementById('category-selection-section').style.display = 'block';
+                document.getElementById('waiting-for-chooser-section').style.display = 'none';
+            } else {
+                document.getElementById('category-selection-section').style.display = 'none';
+                document.getElementById('waiting-for-chooser-section').style.display = 'block';
+                startPollingForGameStatus();
+            }
+        };
+    </script>
+</body>
+</html>

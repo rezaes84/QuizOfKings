@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دسته‌بندی‌های برتر</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            direction: rtl; /* Right-to-left for Persian */
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px; /* Smaller width for categories table */
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            overflow: hidden;
+        }
+        h1 {
+            color: #007bff;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+        }
+        .categories-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .categories-table th, .categories-table td {
+            border: 1px solid #e0e0e0;
+            padding: 12px;
+            text-align: right;
+        }
+        .categories-table th {
+            background-color: #007bff;
+            color: white;
+            font-size: 1.1em;
+            text-transform: uppercase;
+        }
+        .categories-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .categories-table tr:hover {
+            background-color: #e9ecef;
+        }
+        .count-column {
+            color: #6f42c1; /* Purple for category count */
+            font-weight: bold;
+        }
+        .button {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 12px 25px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 1.1em;
+            transition: background-color 0.3s ease;
+        }
+        .button:hover {
+            background-color: #5a6268;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .categories-table, .categories-table tbody, .categories-table tr, .categories-table td, .categories-table th {
+                display: block;
+            }
+            .categories-table thead {
+                display: none;
+            }
+            .categories-table tr {
+                margin-bottom: 15px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            .categories-table td {
+                text-align: right;
+                border-bottom: 1px solid #ddd;
+                position: relative;
+                padding-right: 50%;
+            }
+            .categories-table td::before {
+                content: attr(data-label);
+                position: absolute;
+                right: 6px;
+                width: 45%;
+                padding-left: 10px;
+                font-weight: bold;
+                text-align: left;
+                white-space: nowrap;
+            }
+            /* Specific labels for each column */
+            .categories-table td:nth-of-type(1)::before { content: "دسته:"; }
+            .categories-table td:nth-of-type(2)::before { content: "تعداد انتخاب:"; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>دسته‌بندی‌های برتر</h1>
+
+        {% if top_categories %}
+        <table class="categories-table">
+            <thead>
+                <tr>
+                    <th>دسته</th>
+                    <th>تعداد انتخاب</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for category in top_categories %}
+                <tr>
+                    <td data-label="دسته:">{{ category.name }}</td>
+                    <td data-label="تعداد انتخاب:" class="count-column">{{ category.count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>هنوز اطلاعاتی برای دسته‌بندی‌های برتر وجود ندارد.</p>
+        {% endif %}
+
+        <a href="{{ url_for('profile') }}" class="button">بازگشت به پروفایل</a>
+    </div>
+</body>
+</html>
